@@ -75,7 +75,7 @@ class ChatBot():
   def llamaResponse(self, query):
     client = Groq(
         # This is the default and can be omitted
-        api_key= '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',
+        api_key= 'Your api key',
     )
 
     chat_completion = client.chat.completions.create(
