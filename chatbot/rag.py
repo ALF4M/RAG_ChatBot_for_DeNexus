@@ -5,6 +5,8 @@ from groq import Groq
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from log_config import get_logstash_logger
+logger = get_logstash_logger("chatbot-core")
 
 load_dotenv()
 
@@ -19,6 +21,7 @@ class ChatBot:
         Inicializa el chatbot cargando documentos y creando o recuperando
         un índice FAISS para búsqueda semántica.
         """
+
         self.csvs = {
             'CISSM': ['event_description'],
             'HACKMAGEDDON': ['Description'],
@@ -32,6 +35,7 @@ class ChatBot:
         self.model_name = os.getenv('MODEL_NAME')
         self.faiss_index_path = os.getenv("FAISS_INDEX_PATH", "faiss_index")
         self.data_dir = os.getenv("DATA_DIR", "data")
+        logger.info("Inicializando ChatBot con modelo: %s", self.model_name)
         self._load_documents()
         self._load_faiss()
 
@@ -40,6 +44,7 @@ class ChatBot:
         Carga los datos desde CSVs y los convierte en objetos Document
         compatibles con LangChain.
         """
+        
         for doc_name, columns in self.csvs.items():
             df = pd.read_csv(os.path.join(self.data_dir, f'{doc_name}_cleaned.csv'))
             df = df[columns]
@@ -50,6 +55,7 @@ class ChatBot:
                     page_content=row.iloc[0],
                     metadata={"source": doc_name, "id": row['id']}
                 ))
+        logger.info("Cargados %d documentos de %d fuentes", len(self.documents), len(self.csvs))
 
     def _load_faiss(self):
         """
@@ -57,16 +63,17 @@ class ChatBot:
         """
         embeddings = HuggingFaceEmbeddings(model_name=self.model_name)
         try:
-            print('Cargando índice FAISS')
+            logger.info("Cargando índice FAISS desde %s", self.faiss_index_path)
             self.faiss_index = FAISS.load_local(
                 self.faiss_index_path,
                 embeddings,
                 allow_dangerous_deserialization=True
             )
         except:
-            print('Índice FAISS no encontrado, creando nuevo')
+            logger.warning("No se pudo cargar índice FAISS. Se creará uno nuevo. Error: %s", str(e))
             self.faiss_index = FAISS.from_documents(self.documents, embedding=embeddings)
             self.faiss_index.save_local(self.faiss_index_path)
+            logger.info("Índice FAISS creado con %d documentos", len(self.documents))
 
     def _search_context(self, query: str) -> list[str]:
         """
@@ -112,4 +119,6 @@ class ChatBot:
             messages=messages
         )
 
+        logger.info("Pregunta enviada al modelo: '%s'", query)
+        logger.info("Respuesta generada: '%s'", response.choices[0].message.content)
         return response.choices[0].message.content
