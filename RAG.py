@@ -1,12 +1,10 @@
 import os
 import pandas as pd
+from dotenv import load_dotenv
 from groq import Groq
-from uuid import uuid4
 from langchain_core.documents import Document
-from langchain.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
 
 
@@ -14,6 +12,7 @@ from langchain.schema import Document
 class ChatBot():
 
   def __init__(self):
+    load_dotenv()
     self.csvs = {
     'CISSM': ['event_description'],
     'HACKMAGEDDON': ['Description'],
@@ -39,7 +38,7 @@ class ChatBot():
       for i, r in df.iterrows():
         self.documents.append(
             Document(
-                page_content = r[0],
+                page_content = r.iloc[0],
                 metadata={
                     "source":titulo_documento,
                     "id":r['id']
@@ -75,7 +74,7 @@ class ChatBot():
   def llamaResponse(self, query):
     client = Groq(
         # This is the default and can be omitted
-        api_key= 'Your api key',
+        api_key= os.getenv('API_KEY'),
     )
 
     chat_completion = client.chat.completions.create(
